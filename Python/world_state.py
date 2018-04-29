@@ -69,6 +69,8 @@ class WorldState:
            self.grid[x][y] = marker
 
 
+    # every bird has a copy of the grid as  their "decision"
+
     def make_grid(self,grid_step):
         self.grid_step = grid_step
         width_points = int(self.width/grid_step)
@@ -90,6 +92,7 @@ class WorldState:
     def translate_shape(self,shape,offset):
         return affin.translate(shape,xoff=offset[0],yoff=offset[1])
 
+    # up = unity posiiton (im guessing)
     def unity_to_grid(self,up):
         point = [up[0]/self.grid_step,up[1]/self.grid_step]
         return [int(point[0]),int(point[1])]

@@ -10,19 +10,21 @@ public class ForceGenetic : ForceDNA {
 	// How far in our range we travel in one mutation
 	private static readonly float MUTATION_RATE = .5f;
 
-	private static readonly float CONST_MUT = (CONST_MIN + CONST_MAX) / 2 * MUTATION_RATE;
 
-	private static readonly float EXP_MUT = (EXP_MIN + EXP_MAX) / 2 * MUTATION_RATE;
+	private static readonly float CONST_MUT = twoItemStDev(CONST_MIN, CONST_MAX)*MUTATION_RATE;
 
-	private static readonly float STEP_MUT = (STEP_MIN + STEP_MAX) / 2 * MUTATION_RATE;
+	private static readonly float EXP_MUT = twoItemStDev(EXP_MIN, EXP_MAX)*MUTATION_RATE;
 
-	private static readonly float CARRY_MUT = (CARRY_MIN + CARRY_MAX) / 2 * MUTATION_RATE;
+	private static readonly float STEP_MUT = twoItemStDev(STEP_MIN, STEP_MAX)*MUTATION_RATE;
 
-	private static readonly float DIST_MUT = (DIST_MIN + DIST_MAX) / 2 * MUTATION_RATE;
+	private static readonly float CARRY_MUT = twoItemStDev(CARRY_MIN, CARRY_MAX)*MUTATION_RATE;
 
-	private static readonly float VIEW_MUT = (VIEW_MIN + VIEW_MAX) / 2 * MUTATION_RATE;
+	private static readonly float DIST_MUT = twoItemStDev(DIST_MIN, DIST_MAX)*MUTATION_RATE;
 
-	private static readonly int NUM_SPECIES = 30;
+	private static readonly float VIEW_MUT = twoItemStDev(VIEW_MIN, VIEW_MAX)*MUTATION_RATE;
+
+
+	private static readonly int NUM_SPECIES = 100;
 
 	private static readonly float SCORE_CUTOFF = .1f;
 
@@ -37,6 +39,7 @@ public class ForceGenetic : ForceDNA {
 	private int generation = 39;
 
 	private FlockControl.RandomDelegate randomizePositions;
+
 
 	public ForceGenetic(int numBirds, FlockControl.RandomDelegate rp) {
 		randomizePositions = rp;
@@ -67,6 +70,18 @@ public class ForceGenetic : ForceDNA {
 			return;
 		}
 		scores = new float[genomes.Length];
+	}
+
+	// calculate the (population) standard deviation of two items
+	private static float twoItemStDev(float num1, float num2) {
+		
+		double average = ((double)num1 + (double)num2)/2;
+		double difference1 = (num1 - average);
+		double difference2 = (num2 - average);
+		double squared1 = difference1 * difference1;
+		double squared2 = difference2 * difference2;
+		double squaredAverage = (squared1 + squared2) / 2;
+		return (float) System.Math.Sqrt(squaredAverage);
 	}
 
 	public override Genome Next() {

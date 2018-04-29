@@ -5,6 +5,7 @@ from line_bird import LineBird
 from force_bird import ForceBird
 from multiprocessing import Pool
 
+
 generation = 1
 
 class FlockControl:
