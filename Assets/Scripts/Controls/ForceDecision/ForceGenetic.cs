@@ -45,7 +45,7 @@ public class ForceGenetic : ForceDNA {
 		randomizePositions = rp;
 		current = -1;
 
-		if (readFromFile) {
+		if (!readFromFile) {
 			initRandom();
 		} else {
 			initFromFile();
