@@ -44,7 +44,6 @@ public class ForceGenetic : ForceDNA {
 	public ForceGenetic(int numBirds, FlockControl.RandomDelegate rp) {
 		randomizePositions = rp;
 		current = -1;
-
 		if (!readFromFile) {
 			initRandom();
 		} else {

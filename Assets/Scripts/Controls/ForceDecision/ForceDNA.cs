@@ -54,8 +54,9 @@ public abstract class ForceDNA {
 		}
 
 		public override string ToString() {
-			return Align.ToString() + "\n" + Cohesion.ToString() + "\n" + Repulse.ToString() + "\n" + Obstacle.ToString() + 
-				"\n" + Boundary.ToString() + "\n" + Reward.ToString() + "\n" + Pathfind.ToString();
+			return "Align:\n" + Align.ToString() + "\n\nCohesion:\n" + Cohesion.ToString() + "\n\nRepulse:\n" + Repulse.ToString() +
+			"\n\nObstacle:\n" + Obstacle.ToString() + "\n\nBoundary:\n" + Boundary.ToString() + "\n\nReward:\n" + Reward.ToString() +
+			"\n\nPathfind:\n" + Pathfind.ToString();
 		}
 	}
 
@@ -68,9 +69,9 @@ public abstract class ForceDNA {
 			Exponent = Random.Range(EXP_MIN, EXP_MAX);
 		}
 
-		public Chromosome(float c, float e) {
-			Constant = Mathf.Clamp(c, CONST_MIN, CONST_MAX);
-			Exponent = Mathf.Clamp(e, EXP_MIN, EXP_MAX);
+		public Chromosome(float constant, float exponent) {
+			Constant = Mathf.Clamp(constant, CONST_MIN, CONST_MAX);
+			Exponent = Mathf.Clamp(exponent, EXP_MIN, EXP_MAX);
 		}
 
 		public override string ToString() {
@@ -80,7 +81,6 @@ public abstract class ForceDNA {
 		}
 
 	}
-
 
 	public class PathChrom {
 		public readonly Chromosome Chrom;
@@ -109,12 +109,12 @@ public abstract class ForceDNA {
 			View = Random.Range(VIEW_MIN, VIEW_MAX);
 		}
 
-		public PathChrom(Chromosome cr, float s, float c, float d, float v) {
+		public PathChrom(Chromosome cr, float steps, float carryover, float distance, float view) {
 			Chrom = cr;
-			Steps = Mathf.Clamp(s, STEP_MIN, STEP_MAX);
-			Carryover = Mathf.Clamp(c, CARRY_MIN, CARRY_MAX);
-			Distance = Mathf.Clamp(d, DIST_MIN, DIST_MAX);
-			View = Mathf.Clamp(v, VIEW_MIN, VIEW_MAX);
+			Steps = Mathf.Clamp(steps, STEP_MIN, STEP_MAX);
+			Carryover = Mathf.Clamp(carryover, CARRY_MIN, CARRY_MAX);
+			Distance = Mathf.Clamp(distance, DIST_MIN, DIST_MAX);
+			View = Mathf.Clamp(view, VIEW_MIN, VIEW_MAX);
 		}
 
 		public override string ToString() {

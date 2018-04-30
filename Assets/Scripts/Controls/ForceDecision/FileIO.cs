@@ -5,67 +5,116 @@ using System.Linq;
 
 public class FileIO {
 
+	[System.Serializable]
+	public class JSONGeneration {
+		public float averageScore;
+		public JSONGenome[] genomes;
+
+		public JSONGeneration(JSONGenome[] genomes) {
+			float s = 0;
+			foreach (JSONGenome g in genomes) {
+				s += g.score;
+			}
+			averageScore = s / genomes.Length;
+			this.genomes = genomes;
+		}
+
+		public ForceDNA.Genome[] ToGenomes() {
+			ForceDNA.Genome[] gs = new ForceDNA.Genome[genomes.Length];
+			for (int i = 0; i < gs.Length; i++) {
+				gs [i] = genomes [i].ToGenome();
+			}
+			return gs;
+		}
+	}
+
+	[System.Serializable]
+	public class JSONGenome {
+		public float score;
+		public JSONChrom align;
+		public JSONChrom cohesion;
+		public JSONChrom repulse;
+		public JSONChrom obstacle;
+		public JSONChrom boundary;
+		public JSONChrom reward;
+		public JSONPathChrom pathfind;
+
+		public JSONGenome(ForceDNA.Genome gen, float score) {
+			this.align = new JSONChrom(gen.Align);
+			this.cohesion = new JSONChrom(gen.Cohesion);
+			this.repulse = new JSONChrom(gen.Repulse);
+			this.obstacle = new JSONChrom(gen.Obstacle);
+			this.boundary = new JSONChrom(gen.Boundary);
+			this.reward = new JSONChrom(gen.Reward);
+			this.pathfind = new JSONPathChrom(gen.Pathfind);
+			this.score = score;
+		}
+
+		public ForceDNA.Genome ToGenome() {
+			return new ForceDNA.Genome(align.ToChromosome(), cohesion.ToChromosome(), repulse.ToChromosome(), 
+				obstacle.ToChromosome(), boundary.ToChromosome(), reward.ToChromosome(), pathfind.ToPathChrom());
+		}
+	}
+
+	[System.Serializable]
+	public class JSONChrom {
+		public float constant;
+		public float exponent;
+
+		public JSONChrom(ForceDNA.Chromosome cr) {
+			this.constant = cr.Constant;
+			this.exponent = cr.Exponent;
+		}
+
+		public ForceDNA.Chromosome ToChromosome() {
+			return new ForceDNA.Chromosome(constant, exponent);
+		}
+	}
+
+	// Note that JSONPathChrom IS a JSONChrom, while PathChrom HAS a Chromomsome. It looks more readable in JSON this way.
+	[System.Serializable]
+	public class JSONPathChrom : JSONChrom {
+		public float steps;
+		public float carryover;
+		public float distance;
+		public float view;
+
+		public JSONPathChrom(ForceDNA.PathChrom pcr) : base(pcr.Chrom) {
+			this.steps = pcr.Steps;
+			this.carryover = pcr.Carryover;
+			this.distance = pcr.Distance;
+			this.view = pcr.View;
+		}
+
+		public ForceDNA.PathChrom ToPathChrom() {
+			
+			return new ForceDNA.PathChrom(ToChromosome(), steps, carryover, distance, view);
+		}
+	}
+
+	public static void WriteToFile(string uuid, int gen, ForceDNA.Genome[] genomes, float[] scores) {
+		JSONGenome[] jgs = new JSONGenome[genomes.Length];
+		for (int i = 0; i < genomes.Length; i++) {
+			jgs [i] = new JSONGenome(genomes [i], scores [i]);
+		}
+		JSONGeneration jge = new JSONGeneration(jgs);
+		string path = getPath(uuid, gen, true);
+		string json = JsonUtility.ToJson(jge, true);
+		File.WriteAllLines(path, new string[]{ json });
+	}
+
 	public static ForceDNA.Genome[] ReadFromFile(string uuid, int gen) {
-		string path = getPath(uuid,gen,false);
+		string path = getPath(uuid, gen, false);
 		// This text is added only once to the file.
 		if (!File.Exists(path)) {
 			return null;
 		}
 		// Open the file to read from.
 		string readText = File.ReadAllText(path);
-		System.Text.RegularExpressions.Regex rx = new System.Text.RegularExpressions.Regex("\n\n");
-		string[] array = rx.Split(readText);
-		ForceDNA.Genome[] genomes = new ForceDNA.Genome[array.Length-1];
-		for (int x = 1; x < array.Length; x++) {
-			string item = array[x];
-			string[] split = item.Split('\n');
-			string g = "";
-			for (int i = 2; i < split.Length; i++) {
-				g+=split[i]+"\n";
-			}
-			genomes[x-1]=ReadGenome(g);
-		}
-		return genomes;
-	}
-
-	public static void WriteToFile(string uuid, int gen, ForceDNA.Genome[] genomes, float[] scores) {
-		string[] lines = new string[1 + genomes.Length];
-		lines [0] = "Average Score: " + (scores.Sum() / genomes.Length);
-		for (int i = 0; i < genomes.Length; i++) {
-			lines [i + 1] = "\n\nScore: " + scores [i] + "\n" + genomes [i].ToString();
-		}
-		string path = getPath(uuid,gen,true);
-		File.WriteAllLines(path, lines);
-	}
-
-	public static ForceDNA.Genome ReadGenome(string str) {
-		string[] split = str.Split("\n".ToCharArray());
-		ForceDNA.Chromosome ali = ReadChromosome(split[0]);
-		ForceDNA.Chromosome coh = ReadChromosome(split[1]);
-		ForceDNA.Chromosome rep = ReadChromosome(split[2]);
-		ForceDNA.Chromosome obs = ReadChromosome(split[3]);
-		ForceDNA.Chromosome bou = ReadChromosome(split[4]);
-		ForceDNA.Chromosome rew = ReadChromosome(split[5]);
-		ForceDNA.PathChrom pf = ReadPathChrom(split[6]);
-
-		return new ForceDNA.Genome(ali, coh, rep, obs, bou, rew, pf);
-	}
-
-	public static ForceDNA.Chromosome ReadChromosome(string str) {
-		string[] split = str.Split("\t".ToCharArray());
-		float c = float.Parse(split [0].Split(":".ToCharArray()) [1]);
-		float e = float.Parse(split [1].Split(":".ToCharArray()) [1]);
-		return new ForceDNA.Chromosome(c, e);
-	}
-
-	public static ForceDNA.PathChrom ReadPathChrom(string str) {
-		string[] split = str.Split("\t".ToCharArray());
-		ForceDNA.Chromosome cr = ReadChromosome(split [0] + "\t" + split [1]);
-		float s = float.Parse(split [2].Split(":".ToCharArray()) [1]);
-		float c = float.Parse(split [3].Split(":".ToCharArray()) [1]);
-		float d = float.Parse(split [4].Split(":".ToCharArray()) [1]);
-		float v = float.Parse(split [5].Split(":".ToCharArray()) [1]);
-		return new ForceDNA.PathChrom(cr, s, c, d, v);
+		Debug.Log(readText);
+		JSONGeneration jge = JsonUtility.FromJson<JSONGeneration>(readText);
+		Debug.Log(jge);
+		return jge.ToGenomes();
 	}
 
 	private static string getPath(string name, int gen, bool makeDirectory) {
