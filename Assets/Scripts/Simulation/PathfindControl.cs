@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,6 +18,7 @@ public class PathfindControl : MonoBehaviour {
 	private readonly int NUM_COLLIDERS = 10;
 	private readonly float CHECK_DISTANCE = 2f;
 
+	private List<GraphPoint> gps;
 
 	private bool[,] grid;
 
@@ -25,6 +26,11 @@ public class PathfindControl : MonoBehaviour {
 	private struct GraphPoint {
 		public Vector2 gridPos;
 		public List<GraphPoint> neighbors;
+
+        public GraphPoint(Vector2 pos){
+            this.gridPos = pos;
+            neighbors = new List<GraphPoint>();
+        }
 	}
 
 	private struct Node {
@@ -76,6 +82,31 @@ public class PathfindControl : MonoBehaviour {
 		}
 		// @Javiar: Foreach node in the grid, look at its eight neighbors
 		// Also be sure to include the goal position in the graph you make, even though its neighbors will likely be in the grid
+		//Part 1 and 2
+        HashSet<Vector2> idk = new HashSet<Vector2>();
+        gps = new List<GraphPoint>();
+        for (float x = 0; x < us.roomWidth; x += GRID_STEP) {
+            for (float y = 0; y < us.roomHeight; y += GRID_STEP) {
+                Vector2 point = new Vector2(x, y);
+                Node temp = new Node(point, 0, (Vector2.Distance(point, (Vector2)us.goal.transform.position)));
+                List<Vector2> result = neighbors(temp, idk, true);
+				//get the only element
+                GraphPoint gp = new GraphPoint(result.Get(0));
+                gps.Add(gp);
+            }
+        }
+		//Part 3
+        foreach(GraphPoint p in gps){
+            foreach(GraphPoint g in gps){
+                if(p != g){
+                    RaycastHit2D hit = Physics2D.Raycast(g.gridPos, p.gridPos);
+                    if(!hit){
+						g.neighbors.Add (p);
+						p.neighbors.Add (g);
+                    }
+                }
+            }
+        }
 	}
 
 	public Vector2[] CalculatePath(Vector2 goalPos, BirdControl me) {
@@ -129,7 +160,7 @@ public class PathfindControl : MonoBehaviour {
 				break;
 			}
 
-			List<Vector2> ns = neighbors(cur, examined);
+			List<Vector2> ns = neighbors(cur, examined, false);
 			// @Javiar: This is where neighbors is called. You will have to rewrite neighbors to just look at the current GraphPoint's neighbors.
 			foreach (Vector2 p in ns) {
 				float ng = Vector2.Distance(cur.gridPos, p); 
@@ -166,7 +197,7 @@ public class PathfindControl : MonoBehaviour {
 		}
 	}
 
-	private Vector2 nearestValidPos(int x, int y) {
+	/*private Vector2 nearestValidPos(int x, int y) {
 		if (gridAt(x,y)) {
 			return new Vector2(x, y);
 		}
@@ -196,10 +227,30 @@ public class PathfindControl : MonoBehaviour {
 		}
 		// Could not find anywhere to go, just use where we are.
 		return new Vector2(x, y); 
+	}*/
+
+	//new function based off of graph and not grid.
+	private Vector2 nearestValidPos(int x, int y){
+		int x1 = Mathf.Infinity;
+		int y1 = Mathf.Infinity;
+		GraphPoint temp;
+		//loop through all graphPoints and see which is closest
+		foreach (GraphPoint g in gps) {
+			int x2 = g.gridPos.x;
+			int y2 = g.gridPos.y;
+			if (Mathf.Abs(x2 - x) <= x1 && Mathf.Abs(y2 - y) <= y1) {
+				x1 = Mathf.Abs (x2 - x);
+				y1 = Mathf.Abs (y2 - y);
+				temp = g;
+			}
+		}
+		//return closest graphPoint
+		return temp.gridPos;
 	}
 
-	private List<Vector2> neighbors(Node next, HashSet<Vector2> examined) {
+	private List<Vector2> neighbors(Node next, HashSet<Vector2> examined, boolean flag) {
 		List<Vector2> ns = new List<Vector2>(8); // At most 8 neighbors
+        List<Vector2> ns2 = new List<Vector2>(1);
 		for (int xo = -1; xo <= 1; xo++) {
 			for (int yo = -1; yo <= 1; yo++) {
 				int x = (int)next.gridPos.x + xo;
@@ -212,8 +263,14 @@ public class PathfindControl : MonoBehaviour {
 				examined.Add(pos);
 
 				if (gridAt(x,y)) {
-					ns.Add(pos);
+					ns.Add(next.pos);
 				}
+
+                //new clause
+                if(!gridAt(x, y) && flag){
+                    ns1.add(pos);
+                    return ns1;
+                }
 			}
 		}
 		return ns;
