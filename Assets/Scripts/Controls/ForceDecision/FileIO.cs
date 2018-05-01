@@ -60,14 +60,16 @@ public class FileIO {
 	public class JSONChrom {
 		public float constant;
 		public float exponent;
+		public float distance;
 
 		public JSONChrom(ForceDNA.Chromosome cr) {
 			this.constant = cr.Constant;
 			this.exponent = cr.Exponent;
+			this.distance = cr.Distance;
 		}
 
 		public ForceDNA.Chromosome ToChromosome() {
-			return new ForceDNA.Chromosome(constant, exponent);
+			return new ForceDNA.Chromosome(constant, exponent, distance);
 		}
 	}
 
@@ -76,19 +78,17 @@ public class FileIO {
 	public class JSONPathChrom : JSONChrom {
 		public float steps;
 		public float carryover;
-		public float distance;
 		public float view;
 
 		public JSONPathChrom(ForceDNA.PathChrom pcr) : base(pcr.Chrom) {
 			this.steps = pcr.Steps;
 			this.carryover = pcr.Carryover;
-			this.distance = pcr.Distance;
 			this.view = pcr.View;
 		}
 
 		public ForceDNA.PathChrom ToPathChrom() {
 			
-			return new ForceDNA.PathChrom(ToChromosome(), steps, carryover, distance, view);
+			return new ForceDNA.PathChrom(ToChromosome(), steps, carryover, view);
 		}
 	}
 

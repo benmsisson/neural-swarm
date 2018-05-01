@@ -8,14 +8,14 @@ public abstract class ForceDNA {
 	protected static readonly float EXP_MIN = 1;
 	protected static readonly float EXP_MAX = 10;
 
+	protected static readonly float DIST_MIN = 0;
+	protected static readonly float DIST_MAX = 100;
+
 	protected static readonly float STEP_MIN = 0;
 	protected static readonly float STEP_MAX = 50;
 
 	protected static readonly float CARRY_MIN = 0;
 	protected static readonly float CARRY_MAX = 100;
-
-	protected static readonly float DIST_MIN = 0;
-	protected static readonly float DIST_MAX = 50;
 
 	protected static readonly float VIEW_MIN = 0;
 	protected static readonly float VIEW_MAX = 360;
@@ -63,21 +63,25 @@ public abstract class ForceDNA {
 	public class Chromosome {
 		public readonly float Constant;
 		public readonly float Exponent;
+		public readonly float Distance;
 
 		public Chromosome() {
 			Constant = Random.Range(CONST_MIN, CONST_MAX);
 			Exponent = Random.Range(EXP_MIN, EXP_MAX);
+			Distance = Random.Range(DIST_MIN, DIST_MAX);
 		}
 
-		public Chromosome(float constant, float exponent) {
+		public Chromosome(float constant, float exponent, float distance) {
 			Constant = Mathf.Clamp(constant, CONST_MIN, CONST_MAX);
 			Exponent = Mathf.Clamp(exponent, EXP_MIN, EXP_MAX);
+			Distance = Mathf.Clamp(exponent, DIST_MIN, DIST_MAX);
 		}
 
 		public override string ToString() {
 			string c = "Const: " + Constant;
 			string e = "Exp: " + Exponent;
-			return c + "\t" + e;
+			string d = "Dist: " + Distance;
+			return c + "\t" + e + "\t" + d;
 		}
 
 	}
@@ -109,11 +113,10 @@ public abstract class ForceDNA {
 			View = Random.Range(VIEW_MIN, VIEW_MAX);
 		}
 
-		public PathChrom(Chromosome cr, float steps, float carryover, float distance, float view) {
+		public PathChrom(Chromosome cr, float steps, float carryover, float view) {
 			Chrom = cr;
 			Steps = Mathf.Clamp(steps, STEP_MIN, STEP_MAX);
 			Carryover = Mathf.Clamp(carryover, CARRY_MIN, CARRY_MAX);
-			Distance = Mathf.Clamp(distance, DIST_MIN, DIST_MAX);
 			View = Mathf.Clamp(view, VIEW_MIN, VIEW_MAX);
 		}
 
@@ -121,9 +124,8 @@ public abstract class ForceDNA {
 			string b = Chrom.ToString();
 			string s = "Step: " + Steps;
 			string c = "Carry: " + Carryover;
-			string d = "Dist: " + Distance;
 			string v = "View: " + View;
-			return b + "\t" + s + "\t" + c + "\t" + d + "\t" + v;
+			return b + "\t" + s + "\t" + c + "\t" + v;
 		}
 
 	}

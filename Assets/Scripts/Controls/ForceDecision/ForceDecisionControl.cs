@@ -17,7 +17,7 @@ public class ForceDecisionControl : DecisionControl {
 	private bool[] gotRewardToken;
 
 
-	public override void InitializeModel(int numBirds,  FlockControl.RandomDelegate  rp) {
+	public override void InitializeModel(int numBirds, FlockControl.RandomDelegate  rp) {
 		dna = new ForceGenetic(numBirds, rp);
 	}
 
@@ -37,12 +37,12 @@ public class ForceDecisionControl : DecisionControl {
 
 		Vector2[] forces = new Vector2[us.birds.Length];
 		for (int i = 0; i < us.birds.Length; i++) {
-			if (!us.birds[i].Moving) {
-				forces[i]=Vector2.zero;
+			if (!us.birds [i].Moving) {
+				forces [i] = Vector2.zero;
 				continue;
 			}
 			Vector2 f = getForces(us, i);
-			forces [i] = steer(us.birds[i], f);
+			forces [i] = steer(us.birds [i], f);
 		}
 		return forces;
 	}
@@ -59,7 +59,7 @@ public class ForceDecisionControl : DecisionControl {
 		Vector2 goal = rewardForces [me.Number];
 
 		Vector2 bndry = boundary(us, me); 
-		return align+cohes+obstcl+goal+bndry+repul;
+		return align + cohes + obstcl + goal + bndry + repul;
 	}
 
 	private Vector2 steer(BirdControl me, Vector2 force) {
@@ -121,7 +121,8 @@ public class ForceDecisionControl : DecisionControl {
 				}
 
 				float dist = me.GetDistance(b).dist;
-				if (dist>genome.Pathfind.Distance) {
+				// Distance here is used a bit differently than in other cases, but it is trained just the same and does not result in any issues.
+				if (dist > genome.Pathfind.Distance) {
 					continue;
 				}
 
@@ -199,7 +200,10 @@ public class ForceDecisionControl : DecisionControl {
 				continue;
 			}
 			BirdControl.CachedDelta cd = me.GetDistance(b);
-			force += calcForce(cd.norm,cd.dist,genome.Cohesion);
+			if (cd.dist > genome.Cohesion.Distance) {
+				continue;
+			}
+			force += calcForce(cd.norm, cd.dist, genome.Cohesion);
 		}
 		return force;
 	}
@@ -212,8 +216,10 @@ public class ForceDecisionControl : DecisionControl {
 			}
 
 			BirdControl.CachedDelta cd = me.GetDistance(b);
-			float mag = calcForce(cd.norm,cd.dist,genome.Align).magnitude;
-
+			if (cd.dist > genome.Align.Distance) {
+				continue;
+			}
+			float mag = calcForce(cd.norm, cd.dist, genome.Align).magnitude;
 			force += b.Velocity.normalized * mag;
 		}
 		return force;
@@ -227,7 +233,10 @@ public class ForceDecisionControl : DecisionControl {
 			}
 
 			BirdControl.CachedDelta cd = me.GetDistance(b);
-			force += calcForce(-1*cd.norm,cd.dist,genome.Repulse);
+			if (cd.dist > genome.Repulse.Distance) {
+				continue;
+			}
+			force += calcForce(-1 * cd.norm, cd.dist, genome.Repulse);
 		}
 		return force;
 	}
@@ -236,7 +245,10 @@ public class ForceDecisionControl : DecisionControl {
 		Vector2 force = Vector2.zero;
 		for (int i = 0; i < walls.Length; i++) {
 			BirdControl.CachedDelta cd = me.WallDistance(i);
-			force += calcForce(-1*cd.norm,cd.dist,genome.Cohesion);
+			if (cd.dist > genome.Obstacle.Distance) {
+				continue;
+			}
+			force += calcForce(-1 * cd.norm, cd.dist, genome.Cohesion);
 		}
 		return force;
 	}
@@ -244,22 +256,32 @@ public class ForceDecisionControl : DecisionControl {
 	private Vector2 boundary(FlockControl.UnityState us, BirdControl me) {
 		float xForce = 0;
 		float yForce = 0;
-		if (me.transform.position.x<us.roomWidth/2) {
+		// Also, in this case, we are limiting the individual forces in the x and y dimensions to the force and distance of the genomes boundary
+		// Whereas in other forces we limit the vector(x,y) to the corresponding parameters
+		if (me.transform.position.x < us.roomWidth / 2) {
 			float xDist = me.transform.position.x;
-			xForce = genome.Boundary.Constant/Mathf.Pow(xDist, genome.Boundary.Exponent);
+			if (xDist <= genome.Boundary.Distance) {
+				xForce = genome.Boundary.Constant / Mathf.Pow(xDist, genome.Boundary.Exponent);
+			}
 		} else {
 			float xDist = us.roomWidth - me.transform.position.x;
-			xForce = -1*genome.Boundary.Constant/Mathf.Pow(xDist, genome.Boundary.Exponent);
+			if (xDist <= genome.Boundary.Distance) {
+				xForce = -1 * genome.Boundary.Constant / Mathf.Pow(xDist, genome.Boundary.Exponent);
+			}
 		}
 
-		if (me.transform.position.y<us.roomHeight/2) {
+		if (me.transform.position.y < us.roomHeight / 2) {
 			float yDist = me.transform.position.y;
-			yForce = genome.Boundary.Constant/Mathf.Pow(yDist, genome.Boundary.Exponent);
+			if (yDist <= genome.Boundary.Distance) {
+				yForce = genome.Boundary.Constant / Mathf.Pow(yDist, genome.Boundary.Exponent);
+			}
 		} else {
 			float yDist = us.roomHeight - me.transform.position.y;
-			yForce = -1*genome.Boundary.Constant/Mathf.Pow(yDist, genome.Boundary.Exponent);
+			if (yDist <= genome.Boundary.Distance) {
+				yForce = -1 * genome.Boundary.Constant / Mathf.Pow(yDist, genome.Boundary.Exponent);
+			}
 		}
-		return new Vector2(xForce,yForce);
+		return new Vector2(xForce, yForce);
 	}
 
 	private Vector2 rewardPathfind(Vector2[] path, BirdControl me) {
@@ -270,13 +292,16 @@ public class ForceDecisionControl : DecisionControl {
 		Vector2 force = Vector2.zero;
 		for (int i = 0; i < genome.Pathfind.Steps && i < path.Length; i++) {
 			Vector2 delta = (path [i] - (Vector2)me.transform.position);
-			force += calcForce(delta.normalized,i+1,genome.Pathfind.Chrom);
+			force += calcForce(delta.normalized, i + 1, genome.Pathfind.Chrom);
 		}
 		return force;
 	}
 
 	private Vector2 rewardSimple(Vector2 goalPos, BirdControl me) {
 		Vector2 delta = goalPos - (Vector2)me.transform.position;
+		if (delta.magnitude > genome.Reward.Distance) {
+			continue;
+		}
 		return calcForce(delta, genome.Reward);
 	}
 
@@ -287,7 +312,7 @@ public class ForceDecisionControl : DecisionControl {
 			// We will throw a divide by zero error here on purpose
 			norm = delta / dist;
 		}
-		return calcForce(norm,dist,cr);
+		return calcForce(norm, dist, cr);
 	}
 
 	private Vector2 calcForce(Vector2 norm, float dist, ForceDNA.Chromosome cr) {
@@ -295,7 +320,7 @@ public class ForceDecisionControl : DecisionControl {
 		if (dist == 0) {
 			f = MAX_FORCE; 
 		} else {
-			f = Mathf.Min(cr.Constant / Mathf.Pow(dist, cr.Exponent),MAX_FORCE);
+			f = Mathf.Min(cr.Constant / Mathf.Pow(dist, cr.Exponent), MAX_FORCE);
 		}
 		return norm * f;
 	}

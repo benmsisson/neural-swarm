@@ -4,10 +4,12 @@ using UnityEngine;
 using System.Linq;
 using System.IO;
 
+// TODO: Not switching maps at all
+// TODO: Maybe don't use mutation chance at all and just have a small mutation
 public class ForceGenetic : ForceDNA {
 	// Use a high mutation rate because we are not flipping bits but modifying floats
 	private static readonly float MUTATION_CHANCE = .25f;
-	// How far in our range we travel in one mutation
+	// How many std deviations we travel in one mutation
 	private static readonly float MUTATION_RATE = .5f;
 
 
@@ -24,7 +26,7 @@ public class ForceGenetic : ForceDNA {
 	private static readonly float VIEW_MUT = twoItemStDev(VIEW_MIN, VIEW_MAX)*MUTATION_RATE;
 
 
-	private static readonly int NUM_SPECIES = 100;
+	private static readonly int NUM_SPECIES = 30;
 
 	private static readonly float SCORE_CUTOFF = .1f;
 
@@ -85,6 +87,7 @@ public class ForceGenetic : ForceDNA {
 
 	public override Genome Next() {
 		current++;
+		Debug.Log(current + "/" + genomes.Length);
 		if (current >= genomes.Length) {
 			current = 0;
 			FileIO.WriteToFile(uuid,generation,genomes,scores);
@@ -111,11 +114,11 @@ public class ForceGenetic : ForceDNA {
 		float s = scores.Sum();
 		float diff = (s - lastScore);
 		lastScore = s;
-
-		if (diff / s < SCORE_CUTOFF) {
-			lastScore = 0;
-			randomizePositions();
-		}
+		Debug.Log(s/genomes.Length);
+//		if (diff / s < SCORE_CUTOFF) {
+//			lastScore = 0;
+//			randomizePositions();
+//		}
 	}
 
 	private int selectParent(float[] adjusted) {
@@ -150,7 +153,12 @@ public class ForceGenetic : ForceDNA {
 
 		float em = (Random.value < MUTATION_CHANCE) ? Random.Range(-EXP_MUT, EXP_MUT) : 0;
 		float e = (Random.value > .5f ? p1.Exponent : p2.Exponent) + em;
-		return new Chromosome(c, e);
+
+
+		float dm = (Random.value < MUTATION_CHANCE) ? Random.Range(-DIST_MUT, DIST_MUT) : 0;
+		float d = (Random.value > .5f ? p1.Distance : p2.Distance) + dm;
+
+		return new Chromosome(c, e, d);
 	}
 
 	public PathChrom Crossover(PathChrom p1, PathChrom p2) {
@@ -160,13 +168,10 @@ public class ForceGenetic : ForceDNA {
 		float cm = (Random.value < MUTATION_CHANCE) ? Random.Range(-CARRY_MUT, CARRY_MUT) : 0;
 		float c = (Random.value > .5f ? p1.Carryover : p2.Carryover) + cm;
 
-		float dm = (Random.value < MUTATION_CHANCE) ? Random.Range(-DIST_MUT, DIST_MUT) : 0;
-		float d = (Random.value > .5f ? p1.Carryover : p2.Carryover) + dm;
-
 		float vm = (Random.value < MUTATION_CHANCE) ? Random.Range(-VIEW_MUT, VIEW_MUT) : 0;
-		float v = (Random.value > .5f ? p1.Carryover : p2.Carryover) + vm;
+		float v = (Random.value > .5f ? p1.View : p2.View) + vm;
 
 		Chromosome cr = Crossover(p1.Chrom, p2.Chrom);
-		return new PathChrom(cr, s, c, d, v);
+		return new PathChrom(cr, s, c, v);
 	}
 }
