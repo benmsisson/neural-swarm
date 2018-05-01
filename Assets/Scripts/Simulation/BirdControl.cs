@@ -64,17 +64,6 @@ public class BirdControl : MonoBehaviour {
 		}
 	}
 
-	[System.Serializable]
-	public struct Bird {
-		public Vector2 position;
-		public RectCorners rectCorners;
-		public Vector2 velocity;
-		public float size;
-		public float speed;
-		public float mass;
-		public bool active;
-	}
-
 	public struct CachedDelta {
 		public readonly Vector2 norm;
 		public readonly float dist;
@@ -189,18 +178,6 @@ public class BirdControl : MonoBehaviour {
 			ColliderDistance2D dist = gameObject.GetComponent<Collider2D>().Distance(collider);
 			transform.position += (Vector3)dist.normal * dist.distance;
 		}
-	}
-
-	public Bird ToStruct() {
-		Bird b = new Bird();
-		b.mass = mass;
-		b.position = transform.position;
-		b.rectCorners = new RectCorners(gameObject.GetComponent<RectTransform>());
-		b.size = size;
-		b.speed = speed;
-		b.velocity = velocity;
-		b.active = moving;
-		return b;
 	}
 
 	private void updateRotation() {

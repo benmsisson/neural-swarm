@@ -300,7 +300,7 @@ public class ForceDecisionControl : DecisionControl {
 	private Vector2 rewardSimple(Vector2 goalPos, BirdControl me) {
 		Vector2 delta = goalPos - (Vector2)me.transform.position;
 		if (delta.magnitude > genome.Reward.Distance) {
-			continue;
+			return Vector2.zero;
 		}
 		return calcForce(delta, genome.Reward);
 	}

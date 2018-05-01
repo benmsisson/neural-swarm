@@ -8,7 +8,6 @@ public class FlockControl : MonoBehaviour {
 	public GameObject wallPrefab;
 	public GameObject background;
 
-	public bool callingPython;
 	public DecisionControl decisionControl;
 	public ScoreControl scoreControl;
 
@@ -60,33 +59,17 @@ public class FlockControl : MonoBehaviour {
 		public float maxSize;
 	}
 
-	[System.Serializable]
-	private struct WorldState {
-		public int generation;
-		public BirdControl.Bird[] birds;
-		public RectCorners[] walls;
-		public Vector2 goalPosition;
-		public float goalDiameter;
-		public float roomWidth;
-		public float roomHeight;
-	}
-
-
 	public void Start() {
-		if (!callingPython) {
-			
-			decisionControl.InitializeModel(NUM_BIRDS, randomizePositions);
-			Destroy(GameObject.FindGameObjectWithTag("ClientServer"));
-		}
 		Application.targetFrameRate = (int) (FRAMES_PER_SECOND*SIMULATION_SPEED);
 		Time.timeScale = SIMULATION_SPEED;
 		Application.runInBackground = true;
+
+		decisionControl.InitializeModel(NUM_BIRDS, randomizePositions);
 
 		// Set the background based on room settings
 		background.transform.position = new Vector3(ROOM_WIDTH / 2, ROOM_HEIGHT / 2, 5);
 		Camera.main.transform.position = new Vector3(ROOM_WIDTH / 2, ROOM_HEIGHT / 2, -10);
 		background.transform.localScale = new Vector3(ROOM_WIDTH + 5, ROOM_HEIGHT + 5, 1);
-
 		background.GetComponent<Renderer>().material.color = Color.black;
 
 		goal = Instantiate<GameObject>(goalPrefab);
@@ -119,9 +102,7 @@ public class FlockControl : MonoBehaviour {
 
 	private void endSimulation() {
 		StatsControl.GenerationStats gs = statsControl.CalculateStats();
-		if (!callingPython) {
-			decisionControl.EndGeneration(scoreControl.GetScore(gs));
-		}
+		decisionControl.EndGeneration(scoreControl.GetScore(gs));
 		resetSimulation();
 	}
 
@@ -160,11 +141,13 @@ public class FlockControl : MonoBehaviour {
 		}
 
 		scoreControl.Setup(NUM_BIRDS);
+
 		statsControl.Setup(NUM_BIRDS, MAX_TIME);
+
 		uiControl.AwaitingText();
-		if (!callingPython) {
-			decisionControl.StartGeneration(buildUnityState());
-		}
+
+		decisionControl.StartGeneration(buildUnityState());
+
 		startTime = Time.time;
 		hasReceivedStart = false;
 		generation++;
@@ -179,72 +162,6 @@ public class FlockControl : MonoBehaviour {
 		us.roomWidth = ROOM_WIDTH;
 		us.maxSize = MAX_SIZE;
 		return us;
-	}
-
-	public string Serialize() {
-		BirdControl.Bird[] birds = new BirdControl.Bird[NUM_BIRDS];
-		for (int i = 0; i < NUM_BIRDS; i++) {
-			birds [i] = birdControls [i].ToStruct();
-		}
-		RectCorners[] wallStates = new RectCorners[walls.Length + staticWalls.Length];
-		for (int i = 0; i < walls.Length; i++) {
-			wallStates [i] = new RectCorners(walls [i].GetComponent<RectTransform>());
-		}
-		for (int j = 0; j < staticWalls.Length; j++) {
-			wallStates [j + walls.Length] = new RectCorners(staticWalls [j].GetComponent<RectTransform>());
-		}
-
-		WorldState ws = new WorldState();
-		ws.generation = generation;
-		ws.birds = birds;
-		ws.walls = wallStates;
-
-		ws.goalPosition = (Vector2)goal.transform.position;
-		ws.goalDiameter = goal.transform.localScale.x;
-
-		ws.roomWidth = ROOM_WIDTH;
-		ws.roomHeight = ROOM_HEIGHT;
-		return JsonUtility.ToJson(ws);
-	}
-
-	public void Deserialize(string rawCommand) {
-		// Expected format is the generation follow by a Python list of lists of two numbers ie: [100,[[1,2],[3,4]]]
-		rawCommand = rawCommand.Substring(1, rawCommand.Length - 2);
-		string[] generationListsOfListsSplit = rawCommand.Split(new char[]{ ',' });
-		int rg = int.Parse(generationListsOfListsSplit [0]);
-		if (rg != generation) {
-			// Do not accept commands from other generations
-			return;
-		}
-		try {
-			rawCommand = rawCommand.Substring(generationListsOfListsSplit [0].Length + 2, rawCommand.Length - 3);		
-		} catch (System.Exception ex) {
-			Debug.Log(rawCommand);
-			throw ex;
-		}
-		// At this point we have [[1,2],[3,4]] so we must now remove the outermost brackets
-		rawCommand = rawCommand.Substring(1, rawCommand.Length - 2);
-		// If we know for sure we had more than 1 bird, we could split by '],[' but instead we must split by '[' 
-		// in the case we have just one, we receive [100,[[1,2]]]
-		string[] rawSplits = rawCommand.Split(new char[]{ '[' });
-
-		for (int i = 0; i < rawSplits.Length; i++) {
-			// The first string will always be "", so the bird we are on is i-1
-			if (rawSplits [i] == "") {
-				continue;
-			}
-			// Splitting by ']' and getting the first element in that split gives us 1,2
-			// So split that by ',' to get the raw numbers
-			string[] xy = rawSplits [i].Split(new char[]{ ']' }) [0].Split(new char[]{ ',' });
-			Vector2 accel = new Vector2(float.Parse(xy [0]), float.Parse(xy [1]));
-			birdControls [i - 1].SetForce(accel);
-		}
-		hasReceivedStart = true;
-	}
-
-
-	public Rect GetWorldBound() {
-		return new Rect(0, 0, ROOM_WIDTH, ROOM_HEIGHT);
 	}
 
 	private void findPlacement(GameObject go) {
@@ -294,26 +211,21 @@ public class FlockControl : MonoBehaviour {
 		}
 	}
 
+	public Rect GetWorldBound() {
+		return new Rect(0, 0, ROOM_WIDTH, ROOM_HEIGHT);
+	}
 
 	private void Update() {
-		if (!hasReceivedStart && callingPython) {
-			startTime = Time.time;
-			return;
-		}
-		if (!callingPython) {
-			setupDistCache();
+		setupDistCache();
 
-			float updateStart = Time.realtimeSinceStartup;
-			UnityState us = buildUnityState();
-			scoreControl.SetScore(us);
-			Vector2[] forces = decisionControl.MakeDecisions(us);
-			Debug.Assert(forces.Length == birdControls.Length);
-			for (int i = 0; i < forces.Length; i++) {
-				birdControls [i].SetForce(forces [i]);
-			}
-//			print(Time.realtimeSinceStartup-updateStart);
-		}
+		UnityState us = buildUnityState();
+		scoreControl.SetScore(us);
 
+		Vector2[] forces = decisionControl.MakeDecisions(us);
+		Debug.Assert(forces.Length == birdControls.Length);
+		for (int i = 0; i < forces.Length; i++) {
+			birdControls [i].SetForce(forces [i]);
+		}
 
 		float remainTime = MAX_TIME - (Time.time - startTime);
 		uiControl.SetTime(generation, remainTime);

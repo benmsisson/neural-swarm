@@ -28,9 +28,9 @@ public class ForceGenetic : ForceDNA {
 
 	private static readonly int NUM_SPECIES = 30;
 
-	private static readonly float SCORE_CUTOFF = .1f;
-
-	private float lastScore = 0;
+	// If the average score is less than SCORE_CUTOFF*the max average score for SCORE_STRIKES generations, we switch maps
+	private static readonly float SCORE_CUTOFF = .95f;
+	private static readonly float SCORE_STRIKES = 3;
 
 	private Genome[] genomes;
 	private float[] scores;
@@ -39,6 +39,9 @@ public class ForceGenetic : ForceDNA {
 	private bool readFromFile = false;
 	private string uuid = "09acb057154d4aae8457c2761f15121c";
 	private int generation = 39;
+
+	private int strikes = 0 ;
+	private float maxAverage;
 
 	private FlockControl.RandomDelegate randomizePositions;
 
@@ -111,14 +114,20 @@ public class ForceGenetic : ForceDNA {
 
 		genomes = newGenomes;
 
-		float s = scores.Sum();
-		float diff = (s - lastScore);
-		lastScore = s;
-		Debug.Log(s/genomes.Length);
-//		if (diff / s < SCORE_CUTOFF) {
-//			lastScore = 0;
-//			randomizePositions();
-//		}
+		float ave = scores.Sum()/scores.Length;
+		if (ave>maxAverage) {
+			maxAverage = ave;
+			strikes = 0;
+		} else if (ave<maxAverage*SCORE_CUTOFF){
+			strikes++;
+		}
+
+		if (strikes>=SCORE_STRIKES) {
+			randomizePositions();
+			maxAverage = 0;
+			strikes = 0;
+			Debug.Log("Randomizing positions!");
+		}
 	}
 
 	private int selectParent(float[] adjusted) {
