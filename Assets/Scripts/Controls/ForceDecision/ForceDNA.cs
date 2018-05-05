@@ -9,7 +9,7 @@ public abstract class ForceDNA {
 	protected static readonly float EXP_MAX = 10;
 
 	protected static readonly float DIST_MIN = 0;
-	protected static readonly float DIST_MAX = 100;
+	protected static readonly float DIST_MAX = 500;
 
 	protected static readonly float STEP_MIN = 0;
 	protected static readonly float STEP_MAX = 50;
@@ -74,7 +74,7 @@ public abstract class ForceDNA {
 		public Chromosome(float constant, float exponent, float distance) {
 			Constant = Mathf.Clamp(constant, CONST_MIN, CONST_MAX);
 			Exponent = Mathf.Clamp(exponent, EXP_MIN, EXP_MAX);
-			Distance = Mathf.Clamp(exponent, DIST_MIN, DIST_MAX);
+			Distance = Mathf.Clamp(distance, DIST_MIN, DIST_MAX);
 		}
 
 		public override string ToString() {

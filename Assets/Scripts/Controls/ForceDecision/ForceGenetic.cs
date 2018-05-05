@@ -7,23 +7,22 @@ using System.IO;
 // TODO: Not switching maps at all
 // TODO: Maybe don't use mutation chance at all and just have a small mutation
 public class ForceGenetic : ForceDNA {
-	// Use a high mutation rate because we are not flipping bits but modifying floats
-	private static readonly float MUTATION_CHANCE = .25f;
 	// How many std deviations we travel in one mutation
-	private static readonly float MUTATION_RATE = .5f;
+	private static float mutationRate = .125f;
+	// If best/average is less than this value, cut our mutation rate in half and cut our cutoff in half
+	private float mutationCutoff = 8;
 
+	private static readonly float CONST_MUT = twoItemStDev(CONST_MIN, CONST_MAX);
 
-	private static readonly float CONST_MUT = twoItemStDev(CONST_MIN, CONST_MAX)*MUTATION_RATE;
+	private static readonly float EXP_MUT = twoItemStDev(EXP_MIN, EXP_MAX);
 
-	private static readonly float EXP_MUT = twoItemStDev(EXP_MIN, EXP_MAX)*MUTATION_RATE;
+	private static readonly float STEP_MUT = twoItemStDev(STEP_MIN, STEP_MAX);
 
-	private static readonly float STEP_MUT = twoItemStDev(STEP_MIN, STEP_MAX)*MUTATION_RATE;
+	private static readonly float CARRY_MUT = twoItemStDev(CARRY_MIN, CARRY_MAX);
 
-	private static readonly float CARRY_MUT = twoItemStDev(CARRY_MIN, CARRY_MAX)*MUTATION_RATE;
+	private static readonly float DIST_MUT = twoItemStDev(DIST_MIN, DIST_MAX);
 
-	private static readonly float DIST_MUT = twoItemStDev(DIST_MIN, DIST_MAX)*MUTATION_RATE;
-
-	private static readonly float VIEW_MUT = twoItemStDev(VIEW_MIN, VIEW_MAX)*MUTATION_RATE;
+	private static readonly float VIEW_MUT = twoItemStDev(VIEW_MIN, VIEW_MAX);
 
 
 	private static readonly int NUM_SPECIES = 30;
@@ -42,6 +41,10 @@ public class ForceGenetic : ForceDNA {
 
 	private int strikes = 0 ;
 	private float maxAverage;
+
+	private static readonly int MAPS_PER_SET =  5;
+	private int currentSet = 0;
+	private int currentMap = 1;
 
 	private FlockControl.RandomDelegate randomizePositions;
 
@@ -78,7 +81,7 @@ public class ForceGenetic : ForceDNA {
 
 	// calculate the (population) standard deviation of two items
 	private static float twoItemStDev(float num1, float num2) {
-		
+
 		double average = ((double)num1 + (double)num2)/2;
 		double difference1 = (num1 - average);
 		double difference2 = (num2 - average);
@@ -90,13 +93,29 @@ public class ForceGenetic : ForceDNA {
 
 	public override Genome Next() {
 		current++;
-		Debug.Log(current + "/" + genomes.Length);
+		Debug.Log(current + "/" + genomes.Length + ":" + generation);
 		if (current >= genomes.Length) {
 			current = 0;
 			FileIO.WriteToFile(uuid,generation,genomes,scores);
+			checkRate();
 			evolve();
 		}
 		return genomes [current];
+	}
+
+	private void checkRate() {
+		float aveScore = scores.Sum()/scores.Length();
+		float bestScore = 0;
+		for (int i = 0; i < scores.Length; i++) {
+			bestScore = Mathf.Max(scores[i],bestScore);
+		}
+
+		float ratio = bestScore/aveScore;
+		if (ratio < mutationCutoff) {
+			mutationRate = mutationRate*.5f;
+			mutationCutoff = (mutationCutoff)/2 + .5f;
+			Debug.Log("Halving mutation rate!");
+		}
 	}
 
 	private void evolve() {
@@ -157,27 +176,27 @@ public class ForceGenetic : ForceDNA {
 	}
 
 	public Chromosome Crossover(Chromosome p1, Chromosome p2) {
-		float cm = (Random.value < MUTATION_CHANCE) ? Random.Range(-CONST_MUT, CONST_MUT) : 0;
+		float cm = Random.Range(-CONST_MUT, CONST_MUT) * mutationRate;
 		float c = (Random.value > .5f ? p1.Constant : p2.Constant) + cm;
 
-		float em = (Random.value < MUTATION_CHANCE) ? Random.Range(-EXP_MUT, EXP_MUT) : 0;
+		float em = Random.Range(-EXP_MUT, EXP_MUT) * mutationRate;
 		float e = (Random.value > .5f ? p1.Exponent : p2.Exponent) + em;
 
 
-		float dm = (Random.value < MUTATION_CHANCE) ? Random.Range(-DIST_MUT, DIST_MUT) : 0;
+		float dm = Random.Range(-DIST_MUT, DIST_MUT) * mutationRate;
 		float d = (Random.value > .5f ? p1.Distance : p2.Distance) + dm;
 
 		return new Chromosome(c, e, d);
 	}
 
 	public PathChrom Crossover(PathChrom p1, PathChrom p2) {
-		float sm = (Random.value < MUTATION_CHANCE) ? Random.Range(-STEP_MUT, STEP_MUT) : 0;
+		float sm = Random.Range(-STEP_MUT, STEP_MUT) * mutationRate;
 		float s = (Random.value > .5f ? p1.Steps : p2.Steps) + sm;
 
-		float cm = (Random.value < MUTATION_CHANCE) ? Random.Range(-CARRY_MUT, CARRY_MUT) : 0;
+		float cm = Random.Range(-CARRY_MUT, CARRY_MUT) * mutationRate;
 		float c = (Random.value > .5f ? p1.Carryover : p2.Carryover) + cm;
 
-		float vm = (Random.value < MUTATION_CHANCE) ? Random.Range(-VIEW_MUT, VIEW_MUT) : 0;
+		float vm = Random.Range(-VIEW_MUT, VIEW_MUT) * mutationRate;
 		float v = (Random.value > .5f ? p1.View : p2.View) + vm;
 
 		Chromosome cr = Crossover(p1.Chrom, p2.Chrom);

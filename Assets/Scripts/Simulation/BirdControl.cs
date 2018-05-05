@@ -77,15 +77,19 @@ public class BirdControl : MonoBehaviour {
 		}
 	}
 
-	public void Setup(float size, float speed, int number, int numBirds, int numWalls) {
+	public void Setup(FlockControl.BirdState bs, int number, int numBirds, int numWalls) {
 		this.flockControl = FindObjectOfType<FlockControl>();
 		this.statsControl = FindObjectOfType<StatsControl>();
 		this.velocity = Vector2.zero;
 		this.force = Vector2.zero;
-		this.size = size;
-		this.transform.localScale = defaultScale * size;
-		this.speed = speed;
-		this.mass = size * size;
+
+		this.transform.localScale = defaultScale * bs.size;
+		this.speed = bs.speed;
+		this.size = bs.size;
+		this.mass = bs.size * bs.size;
+		gameObject.GetComponent<Renderer>().material.color = bs.color;
+		this.velocity = bs.velocity;
+
 		this.number = number;
 		this.lastPos = transform.position;
 		gameObject.GetComponent<Collider2D>().enabled = true;

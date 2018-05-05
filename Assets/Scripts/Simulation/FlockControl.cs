@@ -11,7 +11,7 @@ public class FlockControl : MonoBehaviour {
 	public DecisionControl decisionControl;
 	public ScoreControl scoreControl;
 
-	public delegate void RandomDelegate();
+	public delegate int RandomDelegate();
 
 	public GameObject[] staticWalls;
 
@@ -39,7 +39,7 @@ public class FlockControl : MonoBehaviour {
 	private readonly float WALL_MAX_AREA = 12f;
 	private readonly float WALL_MIN_AREA = 8f;
 
-	private readonly float SIMULATION_SPEED = 2f;
+	public static float SIMULATION_SPEED = 10f;
 	private readonly float FRAMES_PER_SECOND = 30f;
 
 	private GameObject goal;
@@ -49,7 +49,9 @@ public class FlockControl : MonoBehaviour {
 	private int reachedGoal;
 	private readonly float MAX_TIME = 20;
 
+	private int nextMapState = -1;
 
+	// Sent to other classes to give them an idea of what the world looks like
 	public struct UnityState {
 		public BirdControl[] birds;
 		public GameObject[] walls;
@@ -59,8 +61,30 @@ public class FlockControl : MonoBehaviour {
 		public float maxSize;
 	}
 
+	// Used by this class to generate maps and go back to them on command
+	public struct MapState {
+		public BirdState[] birds;
+		public WallState[] walls;
+		public Vector2 goal;
+	}
+
+	public struct BirdState {
+		public Vector3 startPos;
+		public Vector2 velocity;
+		public float size;
+		public float speed;
+		public Color color;
+	}
+
+	public struct WallState {
+		public Vector2 postion;
+		public Vector3 scale;
+		public Quaternion rotation;
+	}
+
+
 	public void Start() {
-		Application.targetFrameRate = (int) (FRAMES_PER_SECOND*SIMULATION_SPEED);
+		Application.targetFrameRate = (int)(FRAMES_PER_SECOND * SIMULATION_SPEED);
 		Time.timeScale = SIMULATION_SPEED;
 		Application.runInBackground = true;
 
@@ -106,29 +130,46 @@ public class FlockControl : MonoBehaviour {
 		resetSimulation();
 	}
 
-	private void randomizePositions() {
+	private int randomizePositions() {
+		nextMapState++;
+		MapState ms = new MapState();
+
+		ms.walls = new WallState[NUM_RANDOM_WALLS];
 		for (int i = 0; i < NUM_RANDOM_WALLS; i++) {
+			WallState ws = new WallState();
+
 			float width = Random.Range(WALL_MIN_WIDTH, WALL_MAX_WIDTH);
 			float area = Random.Range(WALL_MIN_AREA, WALL_MAX_AREA);
 			walls [i].transform.localScale = new Vector3(width, area / width, 1f);
-			findPlacement(walls[i]);
+			findPlacement(walls [i]);
+
+			ws.postion = walls [i].transform.position;
+			ws.scale = walls [i].transform.localScale;
+			ws.rotation = walls [i].transform.rotation;
+			ms.walls [i] = ws;
 		}
 
 		findPlacement(goal);
+		ms.goal = goal.transform.position;
 
+		ms.birds = new BirdState[NUM_BIRDS];
 		for (int i = 0; i < NUM_BIRDS; i++) {
 			BirdControl bird = birdControls [i];
-			float size = Random.Range(MIN_SIZE, MAX_SIZE);
-			float speed = Random.Range(MIN_SPEED, MAX_SPEED);
-			bird.Setup(size, speed, i, NUM_BIRDS, walls.Length);
-
-			bird.SetForce(new Vector2(Random.value-.5f,Random.value-.5f).normalized*bird.Speed);
-
-			bird.GetComponent<Renderer>().material.color = new Color(Random.Range(.5f, 1f), Random.Range(.5f, 1f), Random.Range(.5f, 1f));
-
 			findPlacement(bird.gameObject);
-			startPositions[i] = bird.transform.position;
+
+			BirdState bs = new BirdState();
+			bs.size = Random.Range(MIN_SIZE, MAX_SIZE);
+			bs.speed = Random.Range(MIN_SPEED, MAX_SPEED);
+			bs.color = new Color(Random.Range(.5f, 1f), Random.Range(.5f, 1f), Random.Range(.5f, 1f));
+			bs.startPos = bird.transform.position;
+			bs.velocity = new Vector2(Random.value - .5f, Random.value - .5f).normalized * bird.Speed;
+			ms.birds [i] = bs;
+
+			bird.Setup(bs, i, NUM_BIRDS, walls.Length);
+
+			startPositions [i] = bird.transform.position;
 		}
+		return nextMapState;
 	}
 
 	// Resets the walls, goal and all birds.
@@ -136,7 +177,7 @@ public class FlockControl : MonoBehaviour {
 		reachedGoal = 0;
 		for (int i = 0; i < NUM_BIRDS; i++) {
 			BirdControl bird = birdControls [i];
-			bird.transform.position = startPositions[i];
+			bird.transform.position = startPositions [i];
 			bird.Reset();
 		}
 
@@ -164,6 +205,7 @@ public class FlockControl : MonoBehaviour {
 		return us;
 	}
 
+	// Moves and rotates the vector randomly around on the grid until a valid placement is found.
 	private void findPlacement(GameObject go) {
 		Collider2D cld = go.GetComponent<Collider2D>();
 		Vector3 origScale = go.transform.localScale;
@@ -178,7 +220,7 @@ public class FlockControl : MonoBehaviour {
 		while (hitOthers) {
 			go.transform.rotation = Quaternion.Euler(0, 0, Random.Range(0f, 360f));
 			go.transform.position = randomPosition();
-			int hit = cld.OverlapCollider(cf,others);
+			int hit = cld.OverlapCollider(cf, others);
 			hitOthers = hit != 0;
 		}
 		go.transform.localScale = origScale;
@@ -190,23 +232,23 @@ public class FlockControl : MonoBehaviour {
 
 	private void setupDistCache() {
 		for (int i = 0; i < birdControls.Length; i++) {
-			for (int j = i+1; j < birdControls.Length; j++) {
+			for (int j = i + 1; j < birdControls.Length; j++) {
 				BirdControl b1 = birdControls [i];
 				BirdControl b2 = birdControls [j];
 				ColliderDistance2D cd = b1.GetComponent<Collider2D>().Distance(b2.GetComponent<Collider2D>());
 				Vector2 delta = (cd.pointB - cd.pointA);
-				b1.SetDistance(b2,delta);
-				b2.SetDistance(b1,-1*delta);
+				b1.SetDistance(b2, delta);
+				b2.SetDistance(b1, -1 * delta);
 			}
 		}
 
 		for (int i = 0; i < birdControls.Length; i++) {
 			for (int j = 0; j < walls.Length; j++) {
 				BirdControl b1 = birdControls [i];
-				GameObject wall = walls[j];
+				GameObject wall = walls [j];
 				ColliderDistance2D cd = b1.GetComponent<Collider2D>().Distance(wall.GetComponent<Collider2D>());
 				Vector2 delta = (cd.pointB - cd.pointA);
-				b1.SetWallDist(j,delta);
+				b1.SetWallDist(j, delta);
 			}	
 		}
 	}
