@@ -8,7 +8,7 @@ using System.IO;
 // TODO: Maybe don't use mutation chance at all and just have a small mutation
 public class ForceGenetic : ForceDNA {
 	// How many std deviations we travel in one mutation
-	private static float mutationRate = .125f;
+	private static float mutationRate = .25f;
 	// If best/average is less than this value, cut our mutation rate in half and cut our cutoff in half
 	private float mutationCutoff = 8;
 
@@ -33,7 +33,7 @@ public class ForceGenetic : ForceDNA {
 
 	private Genome[] genomes;
 	private float[] scores;
-	private int current;
+	private int current = -1;
 
 	private bool readFromFile = false;
 	private string uuid = "09acb057154d4aae8457c2761f15121c";
@@ -44,14 +44,13 @@ public class ForceGenetic : ForceDNA {
 
 	private static readonly int MAPS_PER_SET =  5;
 	private int currentSet = 0;
-	private int currentMap = 1;
+	private int currentMap = 0;
 
 	private FlockControl.RandomDelegate randomizePositions;
 
 
 	public ForceGenetic(int numBirds, FlockControl.RandomDelegate rp) {
 		randomizePositions = rp;
-		current = -1;
 		if (!readFromFile) {
 			initRandom();
 		} else {
@@ -93,13 +92,21 @@ public class ForceGenetic : ForceDNA {
 
 	public override Genome Next() {
 		current++;
-		Debug.Log(current + "/" + genomes.Length + ":" + generation);
+
 		if (current >= genomes.Length) {
 			current = 0;
+			currentMap++;
+			randomizePositions(currentMap+currentSet*MAPS_PER_SET);
+		}
+
+		if (currentMap >= MAPS_PER_SET) {
+			currentMap = 0;
 			FileIO.WriteToFile(uuid,generation,genomes,scores);
 			checkRate();
+			checkMap();
 			evolve();
 		}
+		Debug.Log(current + "/" + genomes.Length + ":" + currentMap + "|" + generation);
 		return genomes [current];
 	}
 
@@ -118,6 +125,23 @@ public class ForceGenetic : ForceDNA {
 		}
 	}
 
+	private void checkMap() {
+		float ave = scores.Sum()/scores.Length;
+		if (ave>maxAverage) {
+			maxAverage = ave;
+			strikes = 0;
+		} else if (ave<maxAverage*SCORE_CUTOFF){
+			strikes++;
+		}
+
+		if (strikes>=SCORE_STRIKES) {
+			currentSet += 1;
+			maxAverage = 0;
+			strikes = 0;
+			Debug.Log("Randomizing positions!");
+		}
+	}
+
 	private void evolve() {
 		generation++;
 
@@ -132,21 +156,6 @@ public class ForceGenetic : ForceDNA {
 		}
 
 		genomes = newGenomes;
-
-		float ave = scores.Sum()/scores.Length;
-		if (ave>maxAverage) {
-			maxAverage = ave;
-			strikes = 0;
-		} else if (ave<maxAverage*SCORE_CUTOFF){
-			strikes++;
-		}
-
-		if (strikes>=SCORE_STRIKES) {
-			randomizePositions();
-			maxAverage = 0;
-			strikes = 0;
-			Debug.Log("Randomizing positions!");
-		}
 	}
 
 	private int selectParent(float[] adjusted) {
@@ -161,7 +170,7 @@ public class ForceGenetic : ForceDNA {
 	}
 
 	public override void Score(float score) {
-		scores [current] = score;
+		scores [current] = Mathf.Max(score,1f);
 	}
 
 	public Genome Crossover(Genome g1, Genome g2) {

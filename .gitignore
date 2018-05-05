@@ -37,3 +37,14 @@ sysinfo.txt
 neural_swarm/
 
 test_build.app/
+
+linux_build*
+linux_build_Data/level0
+
+linux_build_Data/level1
+
+linux_build_Data/Managed/Assembly-CSharp.dll
+
+linux_build_Data/level0
+
+linux_build_Data/globalgamemanagers

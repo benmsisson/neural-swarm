@@ -11,7 +11,7 @@ public class FlockControl : MonoBehaviour {
 	public DecisionControl decisionControl;
 	public ScoreControl scoreControl;
 
-	public delegate int RandomDelegate();
+	public delegate void RandomDelegate(int x);
 
 	public GameObject[] staticWalls;
 
@@ -49,7 +49,7 @@ public class FlockControl : MonoBehaviour {
 	private int reachedGoal;
 	private readonly float MAX_TIME = 20;
 
-	private int nextMapState = -1;
+	private Dictionary<int, MapState> maps = new Dictionary<int, MapState>();
 
 	// Sent to other classes to give them an idea of what the world looks like
 	public struct UnityState {
@@ -113,7 +113,7 @@ public class FlockControl : MonoBehaviour {
 		}
 			
 		startPositions = new Vector2[NUM_BIRDS];
-		randomizePositions();
+		randomizePositions(0);
 		resetSimulation();
 	}
 
@@ -130,8 +130,12 @@ public class FlockControl : MonoBehaviour {
 		resetSimulation();
 	}
 
-	private int randomizePositions() {
-		nextMapState++;
+	private void randomizePositions(int m) {
+		if (maps.ContainsKey(m)) {
+			loadFromMapState(maps[m]);
+			return;
+		}
+
 		MapState ms = new MapState();
 
 		ms.walls = new WallState[NUM_RANDOM_WALLS];
@@ -169,7 +173,23 @@ public class FlockControl : MonoBehaviour {
 
 			startPositions [i] = bird.transform.position;
 		}
-		return nextMapState;
+
+		maps[m] = ms;
+	}
+
+	private void loadFromMapState(MapState ms) {
+		for (int i = 0; i < NUM_RANDOM_WALLS; i++) {
+			walls[i].transform.position = ms.walls[i].postion;
+			walls[i].transform.localScale = ms.walls[i].scale;
+			walls[i].transform.rotation = ms.walls[i].rotation;
+		}
+
+		goal.transform.position = ms.goal;
+
+		for (int i = 0; i < ms.birds.Length; i++) {
+			birdControls[i].Setup(ms.birds[i],i,NUM_BIRDS,walls.Length);
+		}
+
 	}
 
 	// Resets the walls, goal and all birds.
