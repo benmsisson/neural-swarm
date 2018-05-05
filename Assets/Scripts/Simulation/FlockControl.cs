@@ -39,7 +39,7 @@ public class FlockControl : MonoBehaviour {
 	private readonly float WALL_MAX_AREA = 12f;
 	private readonly float WALL_MIN_AREA = 8f;
 
-	public static float SIMULATION_SPEED = 10f;
+	public static float SIMULATION_SPEED = 2f;
 	private readonly float FRAMES_PER_SECOND = 30f;
 
 	private GameObject goal;

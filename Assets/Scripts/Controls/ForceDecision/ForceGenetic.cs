@@ -104,7 +104,7 @@ public class ForceGenetic : ForceDNA {
 	}
 
 	private void checkRate() {
-		float aveScore = scores.Sum()/scores.Length();
+		float aveScore = scores.Sum()/scores.Length;
 		float bestScore = 0;
 		for (int i = 0; i < scores.Length; i++) {
 			bestScore = Mathf.Max(scores[i],bestScore);
