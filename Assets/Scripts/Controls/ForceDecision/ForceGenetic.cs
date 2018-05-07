@@ -36,13 +36,13 @@ public class ForceGenetic : ForceDNA {
 	private int current = -1;
 
 	private bool readFromFile = false;
-	private string uuid = "09acb057154d4aae8457c2761f15121c";
+	private string uuid = "oneset_noadapt_pathfind";
 	private int generation = 39;
 
 	private int strikes = 0 ;
 	private float maxAverage;
 
-	private static readonly int MAPS_PER_SET =  5;
+	private static readonly int MAPS_PER_SET =  1;
 	private int currentSet = 0;
 	private int currentMap = 0;
 
@@ -64,7 +64,8 @@ public class ForceGenetic : ForceDNA {
 		for (int i = 0; i < NUM_SPECIES; i++) {
 			genomes [i] = new Genome();
 		}
-		uuid = System.Guid.NewGuid().ToString("N");
+		Debug.Log("Using static uuid");
+//		uuid = System.Guid.NewGuid().ToString("N");
 		generation = 1;
 	}
 
@@ -156,6 +157,7 @@ public class ForceGenetic : ForceDNA {
 		}
 
 		genomes = newGenomes;
+		scores = new float[genomes.Length];
 	}
 
 	private int selectParent(float[] adjusted) {
@@ -170,7 +172,7 @@ public class ForceGenetic : ForceDNA {
 	}
 
 	public override void Score(float score) {
-		scores [current] = Mathf.Max(score,1f);
+		scores [current] += Mathf.Max(score,1f);
 	}
 
 	public Genome Crossover(Genome g1, Genome g2) {

@@ -7,7 +7,7 @@ public class ForceDecisionControl : DecisionControl {
 	public PathfindControl pf;
 
 	// The total number of birds that will use pathfinding
-	private static readonly int PATHFIND_TOKENS = 0;
+	private static readonly int PATHFIND_TOKENS = 25;
 	private static readonly float MAX_FORCE = 1000000;
 
 	private ForceDNA dna;
@@ -159,7 +159,6 @@ public class ForceDecisionControl : DecisionControl {
 				// This bird already received a token
 				continue;
 			}
-
 			rewardForces [bird] = rewardSimple(us.goal.transform.position, me);
 		}
 
