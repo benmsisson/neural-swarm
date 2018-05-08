@@ -36,7 +36,7 @@ public class ForceGenetic : ForceDNA {
 	private int current = -1;
 
 	private bool readFromFile = false;
-	private string uuid = "oneset_noadapt_pathfind";
+	private string uuid = "oneset_adaptive_pathfind";
 	private int generation = 39;
 
 	private int strikes = 0 ;

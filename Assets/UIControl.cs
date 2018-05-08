@@ -22,7 +22,7 @@ public class UIControl : MonoBehaviour {
 		foreach (float t in fps) {
 			sum += t;
 		}
-		timeText.text = generation +  "\n" + ((int)sum / fps.Length);// + "\n" + Application.persistentDataPath;
+		timeText.text = "Trial: " +generation +  "\n FPS: " + ((int)sum / fps.Length);// + "\n" + Application.persistentDataPath;
 	}
 
 

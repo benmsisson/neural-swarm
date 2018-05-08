@@ -43,7 +43,8 @@ public class StatsControl : MonoBehaviour {
 	}
 
 	private void Update() {
-		text.text = "Completed: " + completed.Sum().ToString() + "\t\t" + "Bird\\Bird: " + birdCollisions.Sum().ToString() + "\t\t" + "Bird\\Wall: " + wallCollisions.Sum().ToString();
+		text.text = "";
+//		text.text = "Completed: " + completed.Sum().ToString() + "\t\t" + "Bird\\Bird: " + birdCollisions.Sum().ToString() + "\t\t" + "Bird\\Wall: " + wallCollisions.Sum().ToString();
 	}
 
 }

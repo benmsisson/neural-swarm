@@ -40,14 +40,14 @@ public class FlockControl : MonoBehaviour {
 	private readonly float WALL_MIN_AREA = 8f;
 
 	public static float SIMULATION_SPEED = 1f;
-	private readonly float FRAMES_PER_SECOND = 30f;
+	private readonly float FRAMES_PER_SECOND = 60f;
 
 	private GameObject goal;
 	private float startTime = 0;
 	private bool hasReceivedStart = false;
 	private int generation = 0;
 	private int reachedGoal;
-	private readonly float MAX_TIME = 20;
+	private readonly float MAX_TIME = 30;
 
 	private Dictionary<int, MapState> maps = new Dictionary<int, MapState>();
 

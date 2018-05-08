@@ -7,7 +7,7 @@ public class ForceDecisionControl : DecisionControl {
 	public NewPathfindControl pf;
 
 	// The total number of birds that will use pathfinding
-	private static readonly int PATHFIND_TOKENS = 15;
+	private static readonly int PATHFIND_TOKENS = 0;
 	private static readonly float MAX_FORCE = 1000000;
 
 	private ForceDNA dna;
@@ -18,7 +18,7 @@ public class ForceDecisionControl : DecisionControl {
 
 
 	public override void InitializeModel(int numBirds, FlockControl.RandomDelegate  rp) {
-		dna = new ForceGenetic(numBirds, rp);
+		dna = new ForceTrained(numBirds, rp);
 	}
 
 	public override void StartGeneration(FlockControl.UnityState us) {
@@ -35,31 +35,43 @@ public class ForceDecisionControl : DecisionControl {
 		generateRewards(us);
 
 
+		Vector2[] sfs = new Vector2[us.birds.Length];
+		float[] mags = new float[sfs.Length];
+		for (int i = 0; i < us.birds.Length; i++) {
+			if (!us.birds [i].Moving) {
+				sfs [i] = Vector2.zero;
+				mags [i] = 0;
+				continue;
+			}
+			sfs [i] = getStaticForces(us, i);
+			mags[i] = sfs[i].magnitude;
+		}
+
 		Vector2[] forces = new Vector2[us.birds.Length];
 		for (int i = 0; i < us.birds.Length; i++) {
 			if (!us.birds [i].Moving) {
 				forces [i] = Vector2.zero;
 				continue;
 			}
-			Vector2 f = getForces(us, i);
+			Vector2 df = repulsion(us.birds, mags, us.birds [i]) + aligment(us.birds, mags, us.birds [i]);
+			Vector2 f = sfs [i] + df;
 			forces [i] = steer(us.birds [i], f);
 		}
+
 		return forces;
 	}
 
-	private Vector2 getForces(FlockControl.UnityState us, int birdNumber) {
+	private Vector2 getStaticForces(FlockControl.UnityState us, int birdNumber) {
 		BirdControl me = us.birds [birdNumber];
 
-		Vector2 align = aligment(us.birds, me);
 		Vector2 cohes = cohesion(us.birds, me);
-		Vector2 repul = repulsion(us.birds, me); 
 
 		Vector2 obstcl = obstacle(us.walls, me);
 
 		Vector2 goal = rewardForces [me.Number];
 
 		Vector2 bndry = boundary(us, me); 
-		return align + cohes + obstcl + goal + bndry + repul;
+		return cohes + obstcl + goal + bndry;
 	}
 
 	private Vector2 steer(BirdControl me, Vector2 force) {
@@ -207,7 +219,7 @@ public class ForceDecisionControl : DecisionControl {
 		return force;
 	}
 
-	private Vector2 aligment(BirdControl[] birds, BirdControl me) {
+	private Vector2 aligment(BirdControl[] birds, float[] forces, BirdControl me) {
 		Vector2 force = Vector2.zero;
 		foreach (BirdControl b in birds) {
 			if (b.Equals(me) || !b.Moving) {
@@ -218,13 +230,13 @@ public class ForceDecisionControl : DecisionControl {
 			if (cd.dist > genome.Align.Distance) {
 				continue;
 			}
-			float mag = calcForce(cd.norm, cd.dist, genome.Align).magnitude;
+			float mag = calcForce(cd.norm, cd.dist, genome.Align).magnitude;// * forces[b.Number];
 			force += b.Velocity.normalized * mag;
 		}
 		return force;
 	}
 
-	private Vector2 repulsion(BirdControl[] birds, BirdControl me) {
+	private Vector2 repulsion(BirdControl[] birds, float[] forces, BirdControl me) {
 		Vector2 force = Vector2.zero;
 		foreach (BirdControl b in birds) {
 			if (b.Equals(me) || !b.Moving) {
@@ -235,7 +247,7 @@ public class ForceDecisionControl : DecisionControl {
 			if (cd.dist > genome.Repulse.Distance) {
 				continue;
 			}
-			force += calcForce(-1 * cd.norm, cd.dist, genome.Repulse);
+			force += calcForce(-1 * cd.norm, cd.dist, genome.Repulse);// * forces[b.Number];
 		}
 		return force;
 	}
