@@ -4,10 +4,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class ForceDecisionControl : DecisionControl {
-	public PathfindControl pf;
+	public NewPathfindControl pf;
 
 	// The total number of birds that will use pathfinding
-	private static readonly int PATHFIND_TOKENS = 25;
+	private static readonly int PATHFIND_TOKENS = 15;
 	private static readonly float MAX_FORCE = 1000000;
 
 	private ForceDNA dna;
@@ -168,7 +168,7 @@ public class ForceDecisionControl : DecisionControl {
 	private int giveToken(FlockControl.UnityState us, int bird, int tokens, bool[] nextGotToken) {
 		nextGotToken [bird] = true;
 		BirdControl me = us.birds [bird];
-		Vector2[] path = pf.CalculatePath(us.goal.transform.position, me);
+		Vector2[] path = pf.CalculatePath(me);
 		rewardForces [bird] = rewardPathfind(path, me);
 		return tokens - 1;
 	}

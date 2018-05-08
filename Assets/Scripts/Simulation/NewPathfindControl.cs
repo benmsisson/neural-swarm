@@ -11,131 +11,84 @@ public class NewPathfindControl : MonoBehaviour {
 	// When GRID_STEP is 1, there is no difference between world coordinates and grid coordinates.
 
 
-	private readonly float GRID_STEP = 1f;
 	// Overestimation of sqrt(2). If we are within one GRID_STEP square of the goal we are good to stop
 	private readonly float CUTOFF_DIST = 1.5f;
 	// The max number of colliders we will check against
-	private readonly int NUM_COLLIDERS = 10;
 	private readonly float CHECK_DISTANCE = 2f;
 
-	private List<Node> gps;
-
-	private bool[,] grid;
 	private ContactFilter2D cf;
 
-	// @Javiar: This is the basic struct for the graph built off the grid.
+	private bool[,] grid;
+
+	private List<GraphPoint> graph;
+	private GraphPoint goalPoint;
+
+	private Dictionary<GraphPoint,PathDistance> memoized;
+
+	private struct PathDistance {
+		public Vector2[] path;
+		public float dist;
+	}
+
 	private struct GraphPoint {
-		public Vector2 gridPos;
+		public Vector2 pos;
 		public List<GraphPoint> neighbors;
 
 		public GraphPoint(Vector2 pos) {
-			this.gridPos = pos;
+			this.pos = pos;
 			neighbors = new List<GraphPoint>();
 		}
 	}
 
 	private struct Node {
-		public GraphPoint gp;
+		public GraphPoint point;
 		public float g;
 		public float h;
 		public float d;
-		public List<Vector2> path;
+		public List<GraphPoint> path;
 
-		public Node(GraphPoint pos, float g, float h) {
-			this.gp = pos;
+		public Node(GraphPoint point, float g, float h) {
+			this.point = point;
 			this.g = g;
 			this.h = h;
 			this.d = g + h;
-			path = new List<Vector2>();
-			path.Add(pos.gridPos);
+			path = new List<GraphPoint>();
+			path.Add(point);
 		}
 
-		public Node(GraphPoint pos, float g, float h, Node parent) : this(pos, g, h) {
-			path = new List<Vector2>(parent.path);
-			path.Add(pos.gridPos);
+		public Node(GraphPoint point, float g, float h, Node parent) : this(point, g, h) {
+			path = new List<GraphPoint>(parent.path);
+			path.Add(point);
 		}
 	}
 
-
 	public void InitializeGrid(FlockControl.UnityState us) {
+		graph = new List<GraphPoint>();
+		memoized = new Dictionary<GraphPoint, PathDistance>();
+
+		CircleCollider2D cd = GetComponent<CircleCollider2D>();
+		gameObject.transform.localScale = new Vector3(CHECK_DISTANCE * us.maxSize, CHECK_DISTANCE * us.maxSize);
 
 		initCF(us);
 
-		CircleCollider2D cd = GetComponent<CircleCollider2D>();
-		
-
-		// If GRID_STEP != 1, raycasting falls apart
-		Debug.Assert(GRID_STEP == 1);
-
-		Collider2D[] others = new Collider2D[NUM_COLLIDERS];
-		grid = new bool[(int)(us.roomWidth / GRID_STEP), (int)(us.roomHeight / GRID_STEP)];
+		Collider2D[] others = new Collider2D[1];
+		grid = new bool[(int)(us.roomWidth), (int)(us.roomHeight)];
 
 
-		for (float x = 0; x < us.roomWidth; x += GRID_STEP) {
-			for (float y = 0; y < us.roomHeight; y += GRID_STEP) {
+		for (int x = 0; x < us.roomWidth; x++) {
+			for (int y = 0; y < us.roomHeight; y++) {
+				if (Vector2.SqrMagnitude(new Vector2(x, y) - (Vector2)us.goal.transform.position) < us.goal.transform.localScale.x * us.goal.transform.localScale.x) {
+					grid [(int)x, (int)y] = true;
+					continue;
+				}
+
 				transform.position = new Vector2(x, y);
 				int hit = cd.OverlapCollider(cf, others);
-				int gx = (int)(x / GRID_STEP);
-				int gy = (int)(y / GRID_STEP);
-				if (Vector2.SqrMagnitude(new Vector2(x, y) - (Vector2)us.goal.transform.position) < us.goal.transform.localScale.x * us.goal.transform.localScale.x) {
-					grid [gx, gy] = true;
-					continue;
-				}
-
-				grid [gx, gy] = hit == 0;
-			}
-		}
-		// Make a list of nodes, each with their own gridPos
-		gps = new List<Node>();
-		for (float x = 0; x < us.roomWidth; x += GRID_STEP) {
-			for (float y = 0; y < us.roomHeight; y += GRID_STEP) {
-				Vector2 point = new Vector2(x, y);
-				GraphPoint gp = new GraphPoint(point);
-				// Of course g is 0 because we have not travelled anywhere
-				Node temp = new Node(gp, 0, Vector2.Distance(point, (Vector2)us.goal.transform.position));
-				//if true bellow add node to the list.
-				if (hasBlockNeighbor(temp)) {
-					gps.Add(temp);
-				} 
+				grid [x, y] = hit == 0;
 			}
 		}
 
-		// If the node can see the other node, raycast using it 
-		foreach (Node p in gps) {
-			foreach (Node g in gps) {
-				if (p.gp.gridPos == g.gp.gridPos) {
-					continue;
-				}
-				raycastNeighbor(p, g);
-			}
-		}
-		addPoint(us.goal.transform.position);
-	}
-
-	private void raycastNeighbor(Node p, Node g) {
-		RaycastHit2D[] hs = new RaycastHit2D[1];
-		int hit = Physics2D.Raycast(g.gp.gridPos, p.gp.gridPos, cf, hs);
-		if (hit == 0) {
-			g.gp.neighbors.Add(p.gp);
-			p.gp.neighbors.Add(g.gp);
-		}
-	}
-
-	private Node addPoint(Vector2 gridPos) {
-		foreach (Node p in gps) {
-			if (p.gp.gridPos == gridPos) {
-				// We already made a node for this point, so our work is done
-				return p;
-			}
-		}
-
-		GraphPoint gp = new GraphPoint(gridPos);
-		Node newNode = new Node(gp, 0, 0);
-		foreach (Node p in gps) {
-			raycastNeighbor(newNode, p);			
-		}
-		gps.Add(newNode);
-		return newNode;
+		initGraph(us.goal.transform.position);
 	}
 
 	private void initCF(FlockControl.UnityState us) {
@@ -146,23 +99,66 @@ public class NewPathfindControl : MonoBehaviour {
 		cf.useLayerMask = true;
 	}
 
-	public Vector2[] CalculatePath(Vector2 goalPos, BirdControl me) {
-		Debug.Log(gps.Count + "," + grid.GetLength(0));
+	private void initGraph(Vector2 goalPos) {
+		for (int x = 1; x < grid.GetLength(0)-1; x++) {
+			for (int y = 1; y < grid.GetLength(1)-1; y++) {
+				if (!hasBlockedNeighbor(x, y) || !gridAt(x,y)) {
+					continue;
+				}
 
-		Vector2 myGridPos = me.transform.position / GRID_STEP;
-		Node start = addPoint(myGridPos);
+				GraphPoint gp = new GraphPoint(new Vector2(x, y));
+				setupPoint(gp, true);
+			}
+		}
 
+		goalPoint = new GraphPoint(goalPos);
+		setupPoint(goalPoint, true);
+	}
+
+	private void setupPoint(GraphPoint gp, bool addToGraph) {
+		foreach (GraphPoint other in graph) {
+			RaycastHit2D[] hs = new RaycastHit2D[1];
+			Vector2 dir = other.pos - gp.pos;
+			int hit = Physics2D.Raycast(gp.pos, dir.normalized, cf, hs, dir.magnitude);
+			if (hit != 0) {
+				continue;
+			}
+
+			gp.neighbors.Add(other);
+			if (addToGraph) {
+				other.neighbors.Add(gp);
+			}
+		}
+		if (addToGraph) {
+			graph.Add(gp);
+		}
+	}
+
+	public Vector2[] CalculatePath(BirdControl me) {
+		GraphPoint s = new GraphPoint(me.transform.position);
+		setupPoint(s, false);
+
+		Node start = new Node(s, 0, Vector2.Distance(s.pos, goalPoint.pos));
+
+		Vector2 dir = goalPoint.pos - s.pos;
+		RaycastHit2D[] hs = new RaycastHit2D[1];
+		int hit = Physics2D.Raycast(s.pos, dir.normalized, cf, hs,dir.magnitude);
+		if (hit == 0) {
+			// Distance does not matter as we have found the goal
+			Node done = new Node(s,-1,-1); 
+			return getWorldPath(done.path);
+		}
 
 		HashSet<Node> open = new HashSet<Node>();
 		open.Add(start);
-
-		HashSet<Vector2> examined = new HashSet<Vector2>();
-		examined.Add(myGridPos);
+		HashSet<GraphPoint> examined = new HashSet<GraphPoint>();
+		examined.Add(s);
 
 		Node final = new Node();
 		bool found = false;
 
-		while (open.Count > 0) {
+		while (open.Count > 0 && !found) {
+
 			float d = Mathf.Infinity;
 			Node cur = new Node();
 			foreach (Node n in open) {
@@ -172,22 +168,35 @@ public class NewPathfindControl : MonoBehaviour {
 				}
 			}
 
-			examined.Add(cur.gp.gridPos);
+			open.Remove(cur);
 
-			if (cur.gp.gridPos == goalPos) {
-				final = cur;
-				break;
-			}
 
-			foreach (GraphPoint p in cur.gp.neighbors) {
-				if (examined.Contains(p.gridPos)) {
+			foreach (GraphPoint gp in cur.point.neighbors) {
+				if (examined.Contains(gp)) {
 					continue;
 				}
-				float ng = Vector2.Distance(cur.gp.gridPos, p.gridPos); 
-				float h = Vector2.Distance(p.gridPos, goalPos);
-				// TODO: This isn't really the cleanest way to do it. We are making nodes for the graph and for the graph.
-				Node n = new Node(p, cur.g + ng, h, cur);
+				float ng = Vector2.Distance(cur.point.pos, gp.pos); 
+				float h = Vector2.Distance(gp.pos, goalPoint.pos);
+				Node n = new Node(gp, cur.g + ng, h, cur);
+
+				if (gp.pos == goalPoint.pos) {
+					final = n;
+					found = true;
+				}
+
 				open.Add(n);
+				examined.Add(gp);
+
+				if (memoized.ContainsKey(gp)) {
+					Vector2[] memoPath = memoized[gp].path;
+					float td = memoized[gp].dist + Vector2.Distance(memoPath[0],cur.point.pos);
+					if (td > cur.d) {
+						// The memoized path would not save us time
+						continue;
+					}
+
+					return getFromMemo(cur,memoized[gp]);
+				}
 			}
 		}
 
@@ -195,16 +204,49 @@ public class NewPathfindControl : MonoBehaviour {
 			return new Vector2[0];
 		}
 
-		Vector2[] positions = getWorldPath(final);
+		addMemo(final.path);
 
+		Vector2[] positions = getWorldPath(final.path);
 		return positions;
 	}
 
-	private Vector2[] getWorldPath(Node n) {
-		Vector2[] positions = new Vector2[n.path.Count];
+	private Vector2[] getFromMemo(Node cur, PathDistance memo) {
+		Vector2[] mp = memo.path;
+		Vector2[] worldPath = new Vector2[cur.path.Count+mp.Length];
+		getWorldPath(cur.path,worldPath);
+		for (int i = 0; i < mp.Length; i++) {
+			worldPath[cur.path.Count+i] = mp[i];
+		}
+		return worldPath;
+	}
+
+	private void addMemo(List<GraphPoint> finalPath){ 
+		// We did not hit the memoization cache, so we must fill it
+		List<GraphPoint> rev = new List<GraphPoint>(finalPath);
+		rev.Reverse();
+		List<GraphPoint> toGoal = new List<GraphPoint>();
+		// Work backwards from the end, setting the memoization at a GraphPoint to be the path from the GraphPoint to the goal
+		float dist = 0;
+		foreach (GraphPoint gp in rev) {
+			// We must move every item over so this operation is O(n)
+			// If we were to use a LinkedList, we would have to copy over anyway O(n), so this is cleaner
+			toGoal.Insert(0,gp);
+			Vector2[] path = getWorldPath(toGoal);
+			if (path.Length >= 2) {
+				dist += Vector2.Distance(path[0],path[1]);
+			}
+			PathDistance pd = new PathDistance();
+			pd.dist = dist;
+			pd.path = path;
+			memoized[gp] = pd;
+		}
+	}
+
+	private Vector2[] getWorldPath(List<GraphPoint> path, Vector2[] positions = null) {
+		positions = positions ?? new Vector2[path.Count];
 		int i = 0;
-		foreach (Vector2 p in n.path) {
-			positions [i] = p * GRID_STEP;
+		foreach (GraphPoint gp in path) {
+			positions [i] = gp.pos;
 			i++;
 		}
 		return positions;
@@ -212,17 +254,16 @@ public class NewPathfindControl : MonoBehaviour {
 
 	private void drawPath(Vector2[] positions, Color c) {
 		for (int i = 0; i < positions.Length - 1; i++) {
-			Debug.DrawLine(positions [i], positions [i + 1], Color.red);
+			Debug.DrawLine(positions [i], positions [i + 1], c);
 		}
 	}
 
-
-	private bool hasBlockNeighbor(Node node) {
+	private bool hasBlockedNeighbor(int x, int y) {
 		for (int xo = -1; xo <= 1; xo++) {
 			for (int yo = -1; yo <= 1; yo++) {
-				int x = (int)node.gp.gridPos.x + xo;
-				int y = (int)node.gp.gridPos.y + yo;
-				if (!gridAt(x, y)) {
+				int nx = x + xo;
+				int ny = y + yo;
+				if (!gridAt(nx, ny)) {
 					return true;
 				}
 			}
@@ -230,9 +271,6 @@ public class NewPathfindControl : MonoBehaviour {
 		return false;
 	}
 
-
-	// @Javiar: This is a helper function to look at the grid at a grid x and grid y. It is better than grid[x,y] because it checks the bounds.
-	// if it isn't in the bounds, treat it as false (because we cannot go there).
 	private bool gridAt(int x, int y) {
 		if (x < 0 || x >= grid.GetLength(0)) {
 			return false;
